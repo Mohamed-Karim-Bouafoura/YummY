@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useUser, SignInButton, Show, UserButton } from '@clerk/nextjs';
-import { Pizza, CreditCard, Loader2, MapPin } from 'lucide-react';
+import { Pizza, CreditCard, Loader2, MapPin, User } from 'lucide-react';
 
 export default function PizzaPage() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -14,7 +14,6 @@ export default function PizzaPage() {
   const [selectedToppings, setSelectedToppings] = useState<any[]>([]);
   const [address, setAddress] = useState("");
 
-  // Fetch menu from Supabase
   useEffect(() => {
     async function fetchData() {
       const { data: c } = await supabase.from('crusts').select('*');
@@ -31,10 +30,13 @@ export default function PizzaPage() {
     selectedToppings.reduce((sum, t) => sum + t.price, 12.00);
 
   const handleCheckout = async () => {
-    if (!isSignedIn) return;
+    if (!isSignedIn || !user) return;
+
+    // Use username instead of primaryEmailAddress
+    const identifier = user.username || user.firstName || "Guest";
 
     const { data, error } = await supabase.from('orders').insert([{
-      user_email: user.primaryEmailAddress?.emailAddress,
+      user_email: identifier, // Still using the column name 'user_email' but saving the username
       delivery_address: address,
       delivery_date: new Date().toISOString().split('T')[0],
       delivery_hour: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -44,11 +46,15 @@ export default function PizzaPage() {
     }]).select();
 
     if (error) alert("Error: " + error.message);
-    else alert("Success! Order placed for " + user.firstName);
+    else alert(`Order placed for Chef ${identifier}!`);
   };
 
   if (!isLoaded || loading) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={48} /></div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin text-orange-500" size={48} />
+      </div>
+    );
   }
 
   return (
@@ -63,7 +69,10 @@ export default function PizzaPage() {
         <div className="flex items-center gap-4">
           <Show when="signed-in">
             <div className="flex items-center gap-3 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
-              <span className="text-sm font-medium text-orange-700">Hey, {user?.firstName}!</span>
+              <User size={16} className="text-orange-600" />
+              <span className="text-sm font-bold text-orange-700">
+                {user?.username || "Chef"}
+              </span>
               <UserButton />
             </div>
           </Show>
@@ -71,7 +80,7 @@ export default function PizzaPage() {
           <Show when="signed-out">
             <SignInButton mode="modal">
               <button className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded-xl text-sm font-bold transition">
-                Sign In to Order
+                Sign In
               </button>
             </SignInButton>
           </Show>
@@ -82,11 +91,11 @@ export default function PizzaPage() {
         {/* SELECTIONS */}
         <div className="md:col-span-2 space-y-8">
           <section>
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 underline decoration-orange-300">1. Choose Your Crust</h2>
+            <h2 className="text-lg font-bold mb-4">1. Choose Your Crust</h2>
             <div className="grid grid-cols-3 gap-3">
               {crusts.map((c) => (
                 <button key={c.id} onClick={() => setSelectedCrust(c)} 
-                  className={`p-4 rounded-xl border-2 text-center transition-all ${selectedCrust?.id === c.id ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' : 'border-gray-100 hover:border-gray-300'}`}>
+                  className={`p-4 rounded-xl border-2 transition-all ${selectedCrust?.id === c.id ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' : 'border-gray-100 hover:border-gray-300'}`}>
                   <div className="font-bold">{c.name}</div>
                   <div className="text-xs text-gray-500">+${c.price.toFixed(2)}</div>
                 </button>
@@ -95,7 +104,7 @@ export default function PizzaPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 underline decoration-orange-300">2. Add Toppings</h2>
+            <h2 className="text-lg font-bold mb-4">2. Add Toppings</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {toppings.map((t) => {
                 const isSelected = selectedToppings.some(st => st.id === t.id);
@@ -104,7 +113,7 @@ export default function PizzaPage() {
                     onClick={() => isSelected 
                       ? setSelectedToppings(selectedToppings.filter(st => st.id !== t.id))
                       : setSelectedToppings([...selectedToppings, t])}
-                    className={`p-3 rounded-xl border-2 text-left flex justify-between items-center transition-all ${isSelected ? 'border-orange-500 bg-orange-50 shadow-inner' : 'border-gray-100 hover:border-gray-300'}`}>
+                    className={`p-3 rounded-xl border-2 flex justify-between items-center transition-all ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-gray-300'}`}>
                     <span className="text-sm font-medium">{t.name}</span>
                     <span className="text-xs text-gray-400">${t.price.toFixed(2)}</span>
                   </button>
@@ -114,11 +123,11 @@ export default function PizzaPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 underline decoration-orange-300">3. Delivery Details</h2>
+            <h2 className="text-lg font-bold mb-4">3. Delivery Details</h2>
             <div className="relative">
               <MapPin className="absolute top-4 left-4 text-gray-400" size={18} />
               <textarea 
-                className="w-full p-4 pl-12 rounded-xl border-2 border-gray-100 focus:border-orange-500 focus:ring-0 outline-none transition" 
+                className="w-full p-4 pl-12 rounded-xl border-2 border-gray-100 focus:border-orange-500 outline-none" 
                 placeholder="Where should we drop off the pizza?" 
                 rows={3}
                 onChange={(e) => setAddress(e.target.value)} 
@@ -140,19 +149,18 @@ export default function PizzaPage() {
             ))}
           </div>
           <div className="flex justify-between items-end mb-8">
-            <span className="text-gray-400">Total Price</span>
+            <span className="text-gray-400">Total</span>
             <span className="text-4xl font-black text-white">${totalPrice.toFixed(2)}</span>
           </div>
           
           <button 
             disabled={!isSignedIn || !address || address.length < 5}
             onClick={handleCheckout} 
-            className="w-full bg-orange-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition shadow-lg shadow-orange-900/20">
+            className="w-full bg-orange-500 disabled:bg-gray-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition shadow-lg shadow-orange-900/20">
             <CreditCard size={20} /> 
             <Show when="signed-in">Order Now</Show>
             <Show when="signed-out">Sign In to Order</Show>
           </button>
-          {!address && isSignedIn && <p className="text-[10px] text-center mt-2 text-gray-500">Please enter a delivery address</p>}
         </div>
       </div>
     </div>
