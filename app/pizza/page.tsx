@@ -1,11 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useUser, SignInButton } from '@clerk/nextjs'; // Add Clerk
-import { Pizza, CreditCard, Loader2, User } from 'lucide-react';
+import { useUser, SignInButton, Show, UserButton } from '@clerk/nextjs';
+import { Pizza, CreditCard, Loader2, MapPin } from 'lucide-react';
 
 export default function PizzaPage() {
-  const { isLoaded, isSignedIn, user } = useUser(); // Clerk Auth State
+  const { isLoaded, isSignedIn, user } = useUser();
   const [crusts, setCrusts] = useState<any[]>([]);
   const [toppings, setToppings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +14,7 @@ export default function PizzaPage() {
   const [selectedToppings, setSelectedToppings] = useState<any[]>([]);
   const [address, setAddress] = useState("");
 
+  // Fetch menu from Supabase
   useEffect(() => {
     async function fetchData() {
       const { data: c } = await supabase.from('crusts').select('*');
@@ -30,10 +31,10 @@ export default function PizzaPage() {
     selectedToppings.reduce((sum, t) => sum + t.price, 12.00);
 
   const handleCheckout = async () => {
-    if (!isSignedIn) return alert("Please sign in to order!");
+    if (!isSignedIn) return;
 
     const { data, error } = await supabase.from('orders').insert([{
-      user_email: user.primaryEmailAddress?.emailAddress, // Clerk Email
+      user_email: user.primaryEmailAddress?.emailAddress,
       delivery_address: address,
       delivery_date: new Date().toISOString().split('T')[0],
       delivery_hour: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -43,48 +44,58 @@ export default function PizzaPage() {
     }]).select();
 
     if (error) alert("Error: " + error.message);
-    else alert("Order placed for " + user.firstName + "!");
+    else alert("Success! Order placed for " + user.firstName);
   };
 
-  if (!isLoaded || loading) return <div className="flex justify-center mt-20"><Loader2 className="animate-spin" /></div>;
+  if (!isLoaded || loading) {
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={48} /></div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 mt-10">
       {/* AUTH HEADER */}
-      <div className="flex justify-between items-center mb-8 p-4 bg-gray-50 rounded-xl">
+      <div className="flex justify-between items-center mb-8 p-4 bg-white border rounded-2xl shadow-sm">
         <div className="flex items-center gap-2">
           <Pizza className="text-orange-500" size={32} />
-          <h1 className="text-2xl font-bold">Pizza Studio</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Pizza Studio</h1>
         </div>
-        {isSignedIn ? (
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <User size={16} /> {user.firstName}
-          </div>
-        ) : (
-          <SignInButton mode="modal">
-            <button className="bg-black text-white px-4 py-2 rounded-lg text-sm">Sign In to Order</button>
-          </SignInButton>
-        )}
+        
+        <div className="flex items-center gap-4">
+          <Show when="signed-in">
+            <div className="flex items-center gap-3 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+              <span className="text-sm font-medium text-orange-700">Hey, {user?.firstName}!</span>
+              <UserButton afterSignOutUrl="/pizza" />
+            </div>
+          </Show>
+
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2 rounded-xl text-sm font-bold transition">
+                Sign In to Order
+              </button>
+            </SignInButton>
+          </Show>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
         {/* SELECTIONS */}
         <div className="md:col-span-2 space-y-8">
           <section>
-            <h2 className="text-lg font-bold mb-4">1. Crust Type</h2>
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 underline decoration-orange-300">1. Choose Your Crust</h2>
             <div className="grid grid-cols-3 gap-3">
               {crusts.map((c) => (
                 <button key={c.id} onClick={() => setSelectedCrust(c)} 
-                  className={`p-4 rounded-xl border-2 text-center transition ${selectedCrust?.id === c.id ? 'border-orange-500 bg-orange-50' : 'border-gray-100 hover:border-gray-200'}`}>
+                  className={`p-4 rounded-xl border-2 text-center transition-all ${selectedCrust?.id === c.id ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200' : 'border-gray-100 hover:border-gray-300'}`}>
                   <div className="font-bold">{c.name}</div>
-                  <div className="text-xs text-gray-500">+${c.price}</div>
+                  <div className="text-xs text-gray-500">+${c.price.toFixed(2)}</div>
                 </button>
               ))}
             </div>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold mb-4">2. Toppings</h2>
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 underline decoration-orange-300">2. Add Toppings</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {toppings.map((t) => {
                 const isSelected = selectedToppings.some(st => st.id === t.id);
@@ -93,9 +104,9 @@ export default function PizzaPage() {
                     onClick={() => isSelected 
                       ? setSelectedToppings(selectedToppings.filter(st => st.id !== t.id))
                       : setSelectedToppings([...selectedToppings, t])}
-                    className={`p-3 rounded-xl border-2 text-left flex justify-between items-center ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-100'}`}>
+                    className={`p-3 rounded-xl border-2 text-left flex justify-between items-center transition-all ${isSelected ? 'border-orange-500 bg-orange-50 shadow-inner' : 'border-gray-100 hover:border-gray-300'}`}>
                     <span className="text-sm font-medium">{t.name}</span>
-                    <span className="text-xs text-gray-400">${t.price}</span>
+                    <span className="text-xs text-gray-400">${t.price.toFixed(2)}</span>
                   </button>
                 );
               })}
@@ -103,35 +114,45 @@ export default function PizzaPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold mb-4">3. Delivery</h2>
-            <textarea 
-              className="w-full p-4 rounded-xl border-2 border-gray-100 focus:border-orange-500 outline-none" 
-              placeholder="Full Address & Phone Number" 
-              onChange={(e) => setAddress(e.target.value)} 
-            />
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 underline decoration-orange-300">3. Delivery Details</h2>
+            <div className="relative">
+              <MapPin className="absolute top-4 left-4 text-gray-400" size={18} />
+              <textarea 
+                className="w-full p-4 pl-12 rounded-xl border-2 border-gray-100 focus:border-orange-500 focus:ring-0 outline-none transition" 
+                placeholder="Where should we drop off the pizza?" 
+                rows={3}
+                onChange={(e) => setAddress(e.target.value)} 
+              />
+            </div>
           </section>
         </div>
 
         {/* SUMMARY CARD */}
-        <div className="bg-white border-2 border-gray-100 p-6 rounded-2xl h-fit shadow-sm">
-          <h2 className="font-bold text-xl mb-4">Summary</h2>
-          <div className="space-y-3 text-sm text-gray-600 mb-6">
-            <div className="flex justify-between"><span>Base</span><span>$12.00</span></div>
-            <div className="flex justify-between"><span>{selectedCrust?.name}</span><span>${selectedCrust?.price.toFixed(2)}</span></div>
+        <div className="bg-gray-900 text-white p-6 rounded-3xl h-fit shadow-2xl sticky top-10">
+          <h2 className="font-bold text-xl mb-6 border-b border-gray-800 pb-4">Order Summary</h2>
+          <div className="space-y-4 text-sm mb-8">
+            <div className="flex justify-between text-gray-400"><span>Base Pizza</span><span>$12.00</span></div>
+            <div className="flex justify-between text-gray-400"><span>{selectedCrust?.name}</span><span>+${selectedCrust?.price.toFixed(2)}</span></div>
             {selectedToppings.map(t => (
-              <div key={t.id} className="flex justify-between text-orange-600 italic">
-                <span>+ {t.name}</span><span>${t.price.toFixed(2)}</span>
+              <div key={t.id} className="flex justify-between text-orange-400 font-medium italic">
+                <span>+ {t.name}</span><span>+${t.price.toFixed(2)}</span>
               </div>
             ))}
           </div>
-          <div className="text-3xl font-black text-gray-900 mb-6">${totalPrice.toFixed(2)}</div>
+          <div className="flex justify-between items-end mb-8">
+            <span className="text-gray-400">Total Price</span>
+            <span className="text-4xl font-black text-white">${totalPrice.toFixed(2)}</span>
+          </div>
           
           <button 
-            disabled={!isSignedIn || !address}
+            disabled={!isSignedIn || !address || address.length < 5}
             onClick={handleCheckout} 
-            className="w-full bg-orange-500 disabled:bg-gray-300 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition shadow-lg shadow-orange-200">
-            <CreditCard size={20} /> {isSignedIn ? "Order Now" : "Sign In to Order"}
+            className="w-full bg-orange-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-orange-600 transition shadow-lg shadow-orange-900/20">
+            <CreditCard size={20} /> 
+            <Show when="signed-in">Order Now</Show>
+            <Show when="signed-out">Sign In to Order</Show>
           </button>
+          {!address && isSignedIn && <p className="text-[10px] text-center mt-2 text-gray-500">Please enter a delivery address</p>}
         </div>
       </div>
     </div>
