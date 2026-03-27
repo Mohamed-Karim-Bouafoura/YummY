@@ -64,7 +64,7 @@ export default function PizzaPage() {
           <Show when="signed-in">
             <div className="flex items-center gap-3 bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
               <span className="text-sm font-medium text-orange-700">Hey, {user?.firstName}!</span>
-              <UserButton afterSignOutUrl="/pizza" />
+              <UserButton />
             </div>
           </Show>
 

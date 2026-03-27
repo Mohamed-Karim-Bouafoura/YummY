@@ -1,30 +1,29 @@
+import { Suspense } from "react"; // 1. Add this import
 import { ClerkProvider, SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="antialiased">
+      <body>
         <ClerkProvider>
-          <header className="flex justify-between items-center p-4 border-b bg-white">
-            <div className="font-bold text-xl text-orange-600">🍕 Yumm-y</div>
-            <div className="flex gap-4">
-              <Show when="signed-out">
-                <SignInButton mode="modal">
-                  <button className="bg-orange-500 text-white px-4 py-2 rounded-lg font-medium">Sign In</button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button className="border border-orange-500 text-orange-500 px-4 py-2 rounded-lg font-medium">Sign Up</button>
-                </SignUpButton>
-              </Show>
-              <Show when="signed-in">
-                <UserButton afterSignOutUrl="/" />
-              </Show>
-            </div>
+          <header className="flex justify-between p-4 border-b">
+            <div>🍕 Yumm-y</div>
+            
+            {/* 2. Wrap the Auth components in Suspense */}
+            <Suspense fallback={<div className="h-8 w-8 animate-pulse bg-gray-200 rounded-full" />}>
+              <div className="flex gap-4">
+                <Show when="signed-out">
+                  <SignInButton mode="modal" />
+                </Show>
+                <Show when="signed-in">
+                  <UserButton />
+                </Show>
+              </div>
+            </Suspense>
+            
           </header>
-          <main>
-            {children}
-          </main>
+          {children}
         </ClerkProvider>
       </body>
     </html>
